@@ -67,6 +67,7 @@ func (devQ *DeviceQuery) UnmarshalText(b []byte) error {
 }
 
 type Args struct {
+	Verbose    bool        `arg:"-v" help:"verbosity level"`
 	DeviceInfo DeviceQuery `arg:"positional"`
 	Commands   []string    `arg:"positional"`
 }
@@ -100,7 +101,7 @@ func saltDeviceString(serverURL string, devices []userapi.Device) string {
 
 func getPasswordAndAuthenticate(api *userapi.CacophonyUserAPI) error {
 	attempts := 0
-	fmt.Printf("Authentication is required for %v\n", api.GetUser())
+	fmt.Printf("Authentication is required for %v\n", api.User())
 	fmt.Print("Enter Password: ")
 	for !api.IsAuthenticated() {
 		bytePassword, err := gopass.GetPasswd()
@@ -135,6 +136,7 @@ func runMain() error {
 		return runSalt(args.Commands...)
 	}
 
+	config, err := userapi.NewConfig()
 	api, err := userapi.New()
 	if err != nil {
 		return err
@@ -161,7 +163,7 @@ func runMain() error {
 		return err
 	}
 
-	return runSaltForDevices(api.GetServerURL(), devices, args.Commands)
+	return runSaltForDevices(api.ServerURL(), devices, args.Commands)
 }
 
 func getSaltPrefix(serverURL string) string {

@@ -45,7 +45,7 @@ func joinURL(baseURL string, paths ...string) string {
 }
 
 func New() (*CacophonyUserAPI, error) {
-	conf, err := GetConfig()
+	conf, err := NewConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -58,10 +58,10 @@ func New() (*CacophonyUserAPI, error) {
 	return api, nil
 }
 
-func (api *CacophonyUserAPI) GetServerURL() string {
+func (api *CacophonyUserAPI) ServerURL() string {
 	return api.serverURL
 }
-func (api *CacophonyUserAPI) getAuthURL() string {
+func (api *CacophonyUserAPI) authURL() string {
 	return joinURL(api.serverURL, authUserURL)
 
 }
@@ -77,7 +77,7 @@ type DeviceReponse struct {
 	StatusCode int      `json:"statusCode"`
 }
 
-func (api *CacophonyUserAPI) GetUser() string {
+func (api *CacophonyUserAPI) User() string {
 	return api.username
 }
 func (api *CacophonyUserAPI) HasToken() bool {
@@ -109,7 +109,7 @@ func (api *CacophonyUserAPI) Authenticate(password string) error {
 		return err
 	}
 	postResp, err := api.httpClient.Post(
-		api.getAuthURL(),
+		api.authURL(),
 		"application/json",
 		bytes.NewReader(payload),
 	)

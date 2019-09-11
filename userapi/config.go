@@ -27,15 +27,32 @@ type Config struct {
 	filePath  string
 }
 
-func getUserHomeDir() string {
+func userHomeDir() string {
 	usr, err := user.Current()
 	if err != nil {
 		log.Fatal(err)
 	}
 	return usr.HomeDir
 }
-func GetConfig() (*Config, error) {
-	homeDir := getUserHomeDir()
+
+func ParseOrCreateConfig() {
+	homeDir := userHomeDir()
+	filePath := path.Join(homeDir, userConfig)
+
+	if exists, err := afero.Exists(Fs, filePath); err != nil {
+		return nil, err
+	} else if !exists {
+		return nil, errors.New("user config is missing")
+	}
+
+	conf := &Config{filePath: filePath}
+	if err := conf.read(); err != nil {
+		return nil, err
+	}
+}
+
+func NewConfig() (*Config, error) {
+	homeDir := userHomeDir()
 	filePath := path.Join(homeDir, userConfig)
 
 	if exists, err := afero.Exists(Fs, filePath); err != nil {
@@ -88,16 +105,16 @@ const (
 
 // LoadPrivateConfig acquires a readlock and reads private config
 func LoadToken() (string, error) {
-	tokenPath := path.Join(getUserHomeDir(), tokenFileName)
+	tokenPath := path.Join(userHomeDir(), tokenFileName)
 
 	lockSafeConfig := NewLockSafeConfig(tokenPath)
 	return lockSafeConfig.Read()
 }
 
 func SaveToken(token string) error {
-	tokenPath := path.Join(getUserHomeDir(), tokenFileName)
+	tokenPath := path.Join(userHomeDir(), tokenFileName)
 	lockSafeConfig := NewLockSafeConfig(tokenPath)
-	_, err := lockSafeConfig.GetExLock()
+	_, err := lockSafeConfig.ExLock()
 	if err != nil {
 		return err
 	}
@@ -122,16 +139,16 @@ func (lockSafeConfig *LockSafeConfig) Unlock() {
 	lockSafeConfig.fileLock.Unlock()
 }
 
-// GetExLock acquires an exclusive lock on confPassword
-func (lockSafeConfig *LockSafeConfig) GetExLock() (bool, error) {
+// ExLock acquires an exclusive lock on confPassword
+func (lockSafeConfig *LockSafeConfig) ExLock() (bool, error) {
 	lockCtx, cancel := context.WithTimeout(context.Background(), lockTimeout)
 	defer cancel()
 	locked, err := lockSafeConfig.fileLock.TryLockContext(lockCtx, lockRetryDelay)
 	return locked, err
 }
 
-// getReadLock  acquires a read lock on the supplied Flock struct
-func getReadLock(fileLock *flock.Flock) (bool, error) {
+// readLock  acquires a read lock on the supplied Flock struct
+func readLock(fileLock *flock.Flock) (bool, error) {
 	lockCtx, cancel := context.WithTimeout(context.Background(), lockTimeout)
 	defer cancel()
 	locked, err := fileLock.TryRLockContext(lockCtx, lockRetryDelay)
@@ -142,7 +159,7 @@ func getReadLock(fileLock *flock.Flock) (bool, error) {
 func (lockSafeConfig *LockSafeConfig) Read() (string, error) {
 	locked := lockSafeConfig.fileLock.Locked()
 	if locked == false {
-		locked, err := getReadLock(lockSafeConfig.fileLock)
+		locked, err := readLock(lockSafeConfig.fileLock)
 		if locked == false || err != nil {
 			return "", err
 		}
