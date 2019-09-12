@@ -1,4 +1,4 @@
-// go-api - Client for the Cacophony API server.
+// userapi - Client for the Cacophony API server.
 // Copyright (C) 2018, The Cacophony Project
 //
 //Licensed under the Apache License, Version 2.0 (the "License");
