@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -86,19 +87,6 @@ func main() {
 	}
 }
 
-func saltDeviceString(serverURL string, devices []userapi.Device) string {
-	var saltDevices bytes.Buffer
-	idPrefix := getSaltPrefix(serverURL)
-	saltDevices.WriteString("\"")
-	spacer := ""
-	for _, device := range devices {
-		saltDevices.WriteString(spacer + idPrefix + "-" + strconv.Itoa(device.SaltId))
-		spacer = " "
-	}
-	saltDevices.WriteString("\"")
-	return saltDevices.String()
-}
-
 func getPasswordAndAuthenticate(api *userapi.CacophonyUserAPI) error {
 	attempts := 0
 	fmt.Printf("Authentication is required for %v\n", api.User())
@@ -123,6 +111,78 @@ func getPasswordAndAuthenticate(api *userapi.CacophonyUserAPI) error {
 	return api.SaveTemporaryToken(userapi.LongTTL)
 }
 
+// getMissingConfig from the user and save to config file
+func getMissingConfig(conf *userapi.Config) {
+	fmt.Print("User configuration missing\n")
+	if conf.ServerURL == "" {
+		fmt.Print("Enter API ServerURL: ")
+		fmt.Scanln(&conf.ServerURL)
+	}
+
+	if conf.UserName == "" {
+		fmt.Print("Enter Username: ")
+		fmt.Scanln(&conf.UserName)
+	}
+}
+
+func getSaltPrefix(serverURL string) string {
+	idPrefix := "pi"
+	url, err := url.Parse(serverURL)
+	if err != nil {
+		fmt.Printf("Error parsing serverURL %v", err)
+		return idPrefix
+	}
+	if url.Host == userapi.TestAPIHost {
+		idPrefix += "-test"
+	}
+	return idPrefix
+}
+
+func saltDeviceString(serverURL string, devices []userapi.Device) string {
+	var saltDevices bytes.Buffer
+	idPrefix := getSaltPrefix(serverURL)
+	saltDevices.WriteString("\"")
+	spacer := ""
+	for _, device := range devices {
+		saltDevices.WriteString(spacer + idPrefix + "-" + strconv.Itoa(device.SaltId))
+		spacer = " "
+	}
+	saltDevices.WriteString("\"")
+	return saltDevices.String()
+}
+
+func runSaltForDevices(serverURL string, devices []userapi.Device, argCommands []string) error {
+	if len(devices) == 0 {
+		return errors.New("No valid devices found")
+	}
+	ids := saltDeviceString(serverURL, devices)
+	commands := make([]string, 2, 10)
+	if len(devices) > 1 {
+		commands = append(commands, "-L")
+	}
+	commands = append(commands, ids)
+	commands = append(commands, argCommands...)
+	return runSalt(commands...)
+}
+
+func runSalt(commands ...string) error {
+	commands = append([]string{"salt"}, commands...)
+	cmd := exec.Command("sudo", commands...)
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	out, err := cmd.Output()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	if err != nil {
+		return err
+	}
+	fmt.Print(string(out))
+	return err
+}
+
 func runMain() error {
 	args := procArgs()
 	if len(args.Commands) == 0 {
@@ -137,10 +197,14 @@ func runMain() error {
 	}
 
 	config, err := userapi.NewConfig()
-	api, err := userapi.New()
 	if err != nil {
-		return err
+		getMissingConfig(config)
+		err = config.Save()
+		if err != nil {
+			fmt.Printf("Error saving config %v", err)
+		}
 	}
+	api := userapi.New(config)
 
 	if !api.HasToken() {
 		err = getPasswordAndAuthenticate(api)
@@ -164,41 +228,4 @@ func runMain() error {
 	}
 
 	return runSaltForDevices(api.ServerURL(), devices, args.Commands)
-}
-
-func getSaltPrefix(serverURL string) string {
-	idPrefix := "pi"
-	url, err := url.Parse(serverURL)
-	if err != nil {
-		fmt.Printf("Error parsing serverURL %v", err)
-		return idPrefix
-	}
-	if url.Host == userapi.TestAPIHost {
-		idPrefix += "-test"
-	}
-	return idPrefix
-}
-
-func runSaltForDevices(serverURL string, devices []userapi.Device, argCommands []string) error {
-	if len(devices) == 0 {
-		return errors.New("no valid devices found")
-	}
-	ids := saltDeviceString(serverURL, devices)
-	commands := make([]string, 2, 10)
-	if len(devices) > 1 {
-		commands = append(commands, "-L")
-	}
-	commands = append(commands, ids)
-	commands = append(commands, argCommands...)
-	return runSalt(commands...)
-}
-
-func runSalt(commands ...string) error {
-	fmt.Printf("%v\n", strings.Join(commands, " "))
-	out, err := exec.Command("echo", commands...).Output()
-	if err != nil {
-		return err
-	}
-	fmt.Print(string(out))
-	return err
 }

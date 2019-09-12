@@ -44,18 +44,14 @@ func joinURL(baseURL string, paths ...string) string {
 	return u.String()
 }
 
-func New() (*CacophonyUserAPI, error) {
-	conf, err := NewConfig()
-	if err != nil {
-		return nil, err
-	}
+func New(conf *Config) *CacophonyUserAPI {
 	api := &CacophonyUserAPI{
-		token:      conf.Token,
+		token:      conf.token,
 		serverURL:  conf.ServerURL,
 		username:   conf.UserName,
 		httpClient: newHTTPClient(),
 	}
-	return api, nil
+	return api
 }
 
 func (api *CacophonyUserAPI) ServerURL() string {
@@ -169,7 +165,7 @@ func (api *CacophonyUserAPI) SaveTemporaryToken(ttl string) error {
 	if err := d.Decode(&resp); err != nil {
 		return fmt.Errorf("decode: %v", err)
 	}
-	err = SaveToken("JWT " + resp.Token)
+	err = saveTokenConfig("JWT "+resp.Token, api.username)
 	return nil
 }
 
@@ -180,24 +176,22 @@ func (api *CacophonyUserAPI) TranslateNames(groups []string, devices []Device) (
 			authentication: true,
 		}
 	}
-	data := make(map[string]interface{})
-
-	if groups != nil {
-		data["groups"] = groups
-	}
-	if devices != nil {
-		data["devices"] = devices
-	}
-	payload, err := json.Marshal(data)
-	req, err := http.NewRequest("POST", joinURL(api.serverURL, apiBasePath, "/devices/query"),
-		bytes.NewReader(payload),
-	)
+	req, err := http.NewRequest("GET", joinURL(api.serverURL, apiBasePath, "/devices/query"), nil)
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Set("Authorization", api.token)
-	req.Header.Set("Content-Type", "application/json")
+	q := req.URL.Query()
+	if groups != nil {
+		json, _ := json.Marshal(groups)
+		q.Add("groups", string(json))
+	}
+	if devices != nil {
+		json, _ := json.Marshal(devices)
+		q.Add("devices", string(json))
+	}
+	req.URL.RawQuery = q.Encode()
 	resp, err := api.httpClient.Do(req)
 	if err != nil {
 		return nil, err
