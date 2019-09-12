@@ -1,0 +1,32 @@
+project_name: csalt
+
+release:
+  github:
+    owner: TheCacophonyProject
+    name: csalt
+  name_template: '{{.Tag}}'
+
+builds:
+- id: csalt
+  binary: csalt
+  main: ./cmd/csalt
+  goos:
+    - linux
+  goarch:
+    - amd64
+
+nfpms:
+- vendor: The Cacophony Project
+  homepage: http://cacophony.org.nz/
+  maintainer: Cacophony Developers <coredev@cacophony.org.nz>
+  description: Salt wrapper for salt server
+  license: Apache 2.0 License
+  name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
+  formats:
+    - deb
+  bindir: /usr/bin
+
+checksum:
+  name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'
+
+dist: dist
