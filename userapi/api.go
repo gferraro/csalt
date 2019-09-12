@@ -47,7 +47,7 @@ type CacophonyUserAPI struct {
 	authenticated bool
 }
 
-// joinURL creates an absolute url with supplied baseURL, and all paths
+// joinURL creates an absolute URL with supplied baseURL, and all paths
 func joinURL(baseURL string, paths ...string) string {
 
 	u, err := url.Parse(baseURL)
@@ -143,6 +143,7 @@ func (api *CacophonyUserAPI) Authenticate(password string) error {
 	return nil
 }
 
+// SaveTemporaryToken requests a temporary token with read access to devices from the API server
 func (api *CacophonyUserAPI) SaveTemporaryToken(ttl string) error {
 	if api.token == "" {
 		return errors.New("No Token found")

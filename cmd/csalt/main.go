@@ -50,7 +50,7 @@ func (devQ *DeviceQuery) HasValues() bool {
 	return len(devQ.devices) > 0 || len(devQ.groups) > 0
 }
 
-// UnmarshalText is called by go-arg when an argument of type DeviceQuery is expected.
+// UnmarshalText is called automatically by go-arg when an argument of type DeviceQuery is being parsed.
 // parses supplied bytes into devices and groups by splitting supplied bytes by spaces.
 // Devices must be in the format groupname:devicename
 // Groups must be in the format groupname(: optional)
