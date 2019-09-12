@@ -87,6 +87,8 @@ func main() {
 	}
 }
 
+// getPasswordAndAuthenticate requests a passwrod from the user and checks it
+// against the api server, if authenticated will request and save a temporary token
 func getPasswordAndAuthenticate(api *userapi.CacophonyUserAPI) error {
 	attempts := 0
 	fmt.Printf("Authentication is required for %v\n", api.User())
@@ -138,7 +140,9 @@ func getSaltPrefix(serverURL string) string {
 	return idPrefix
 }
 
-func saltDeviceString(serverURL string, devices []userapi.Device) string {
+// saltDeviceCommand adds a prefix to all supplied devices based on the server and returns
+// a quoted string of device names seperated by a space
+func saltDeviceCommand(serverURL string, devices []userapi.Device) string {
 	var saltDevices bytes.Buffer
 	idPrefix := getSaltPrefix(serverURL)
 	saltDevices.WriteString("\"")
@@ -151,11 +155,12 @@ func saltDeviceString(serverURL string, devices []userapi.Device) string {
 	return saltDevices.String()
 }
 
+// runSaltForDevices executes salt on supplied devices with argCommands
 func runSaltForDevices(serverURL string, devices []userapi.Device, argCommands []string) error {
 	if len(devices) == 0 {
 		return errors.New("No valid devices found")
 	}
-	ids := saltDeviceString(serverURL, devices)
+	ids := saltDeviceCommand(serverURL, devices)
 	commands := make([]string, 2, 10)
 	if len(devices) > 1 {
 		commands = append(commands, "-L")
@@ -165,6 +170,7 @@ func runSaltForDevices(serverURL string, devices []userapi.Device, argCommands [
 	return runSalt(commands...)
 }
 
+// runSalt wit sudo on supplied arguments
 func runSalt(commands ...string) error {
 	commands = append([]string{"salt"}, commands...)
 	cmd := exec.Command("sudo", commands...)
