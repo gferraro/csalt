@@ -140,9 +140,6 @@ func (api *CacophonyUserAPI) Authenticate(password string) error {
 	}
 	api.token = resp.Token
 	api.authenticated = true
-	if err != nil {
-		fmt.Printf("Could not save token %v\n", err)
-	}
 	return nil
 }
 

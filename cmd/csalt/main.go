@@ -52,7 +52,9 @@ func (devQ *DeviceQuery) UnmarshalText(b []byte) error {
 
 	for _, devInfo := range devices {
 		pos := strings.Index(devInfo, ":")
-		if pos >= 0 {
+		if pos == 0 {
+			return errors.New("Groupname is required for devices")
+		} else if pos >= 0 {
 			if len(devInfo) == pos+1 {
 				devQ.groups = append(devQ.groups, devInfo[:pos])
 			} else {
@@ -68,7 +70,6 @@ func (devQ *DeviceQuery) UnmarshalText(b []byte) error {
 }
 
 type Args struct {
-	Verbose    bool        `arg:"-v" help:"verbosity level"`
 	DeviceInfo DeviceQuery `arg:"positional"`
 	Commands   []string    `arg:"positional"`
 }
