@@ -1,4 +1,4 @@
-module github.com/gferraro/csalt
+module github.com/TheCacophonyProject/csalt
 
 go 1.12
 

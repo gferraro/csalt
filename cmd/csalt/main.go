@@ -28,8 +28,8 @@ import (
 
 	"github.com/howeyc/gopass"
 
+	"github.com/TheCacophonyProject/csalt/userapi"
 	"github.com/alexflint/go-arg"
-	"github.com/gferraro/csalt/userapi"
 )
 
 const (
