@@ -42,10 +42,18 @@ type DeviceQuery struct {
 	rawArg  string
 }
 
+func (devQ *DeviceQuery) RawQuery() bool {
+	return len(devQ.rawArg) > 0
+}
+
 func (devQ *DeviceQuery) HasValues() bool {
 	return len(devQ.devices) > 0 || len(devQ.groups) > 0
 }
 
+// UnmarshalText is called by go-arg when an argument of type DeviceQuery is expected.
+// parses supplied bytes into devices and groups by splitting supplied bytes by spaces.
+// Devices must be in the format groupname:devicename
+// Groups must be in the format groupname(: optional)
 func (devQ *DeviceQuery) UnmarshalText(b []byte) error {
 	devQ.rawArg = string(b)
 	devices := strings.Split(strings.TrimSpace(string(b)), " ")
@@ -76,7 +84,6 @@ type Args struct {
 
 func procArgs() Args {
 	var args Args
-	args.DeviceInfo = DeviceQuery{}
 	arg.MustParse(&args)
 	return args
 }
@@ -88,13 +95,24 @@ func main() {
 	}
 }
 
-// getPasswordAndAuthenticate requests a passwrod from the user and checks it
-// against the api server, if authenticated will request and save a temporary token
-func getPasswordAndAuthenticate(api *userapi.CacophonyUserAPI) error {
+// authenticateUser checks user authentication and requests user password if required
+// once authenticated requests and saves a temporary access token
+func authenticateUser(api *userapi.CacophonyUserAPI) error {
+	if !api.Authenticated() {
+		err := requestAuthentication(api)
+		if err != nil {
+			return err
+		}
+	}
+	return api.SaveTemporaryToken(userapi.LongTTL)
+}
+
+// requestAuthentication requests a password from the user and checks it against the API server,
+func requestAuthentication(api *userapi.CacophonyUserAPI) error {
 	attempts := 0
 	fmt.Printf("Authentication is required for %v\n", api.User())
 	fmt.Print("Enter Password: ")
-	for !api.IsAuthenticated() {
+	for !api.Authenticated() {
 		bytePassword, err := gopass.GetPasswd()
 		if err != nil {
 			return err
@@ -111,12 +129,12 @@ func getPasswordAndAuthenticate(api *userapi.CacophonyUserAPI) error {
 		}
 		fmt.Print("\nIncorrect user/password try again\nEnter Password: ")
 	}
-	return api.SaveTemporaryToken(userapi.LongTTL)
+	return nil
 }
 
 // getMissingConfig from the user and save to config file
 func getMissingConfig(conf *userapi.Config) {
-	fmt.Print("User configuration missing\n")
+	fmt.Println("User configuration missing")
 	if conf.ServerURL == "" {
 		fmt.Print("Enter API ServerURL: ")
 		fmt.Scanln(&conf.ServerURL)
@@ -142,7 +160,7 @@ func getSaltPrefix(serverURL string) string {
 }
 
 // saltDeviceCommand adds a prefix to all supplied devices based on the server and returns
-// a quoted string of device names seperated by a space
+// a quoted string of device names separated by a space
 func saltDeviceCommand(serverURL string, devices []userapi.Device) string {
 	var saltDevices bytes.Buffer
 	idPrefix := getSaltPrefix(serverURL)
@@ -162,7 +180,7 @@ func runSaltForDevices(serverURL string, devices []userapi.Device, argCommands [
 		return errors.New("No valid devices found")
 	}
 	ids := saltDeviceCommand(serverURL, devices)
-	commands := make([]string, 2, 10)
+	commands := make([]string, 2, 6)
 	if len(devices) > 1 {
 		commands = append(commands, "-L")
 	}
@@ -171,35 +189,26 @@ func runSaltForDevices(serverURL string, devices []userapi.Device, argCommands [
 	return runSalt(commands...)
 }
 
-// runSalt wit sudo on supplied arguments
+// runSalt with sudo on supplied arguments
 func runSalt(commands ...string) error {
 	commands = append([]string{"salt"}, commands...)
 	cmd := exec.Command("sudo", commands...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
-
-	out, err := cmd.Output()
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	if err != nil {
-		return err
-	}
-	fmt.Print(string(out))
+	cmd.Stdout = os.Stdout
+	err := cmd.Run()
 	return err
 }
 
 func runMain() error {
 	args := procArgs()
+
 	if len(args.Commands) == 0 {
-		if len(args.DeviceInfo.rawArg) == 0 {
-			return errors.New("A command must be specified")
-		} else {
+		if args.DeviceInfo.RawQuery() {
 			return runSalt(args.DeviceInfo.rawArg)
 		}
-	}
-	if !args.DeviceInfo.HasValues() {
+		return errors.New("A command must be specified")
+	} else if !args.DeviceInfo.HasValues() {
 		return runSalt(args.Commands...)
 	}
 
@@ -211,17 +220,18 @@ func runMain() error {
 			fmt.Printf("Error saving config %v", err)
 		}
 	}
-	api := userapi.New(config)
 
+	api := userapi.New(config)
 	if !api.HasToken() {
-		err = getPasswordAndAuthenticate(api)
+		err = authenticateUser(api)
 		if err != nil {
 			return err
 		}
 	}
+
 	devices, err := api.TranslateNames(args.DeviceInfo.groups, args.DeviceInfo.devices)
 	if userapi.IsAuthenticationError(err) {
-		err = getPasswordAndAuthenticate(api)
+		err = authenticateUser(api)
 
 		if err != nil {
 			return err

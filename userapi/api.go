@@ -94,7 +94,7 @@ func (api *CacophonyUserAPI) User() string {
 func (api *CacophonyUserAPI) HasToken() bool {
 	return api.token != ""
 }
-func (api *CacophonyUserAPI) IsAuthenticated() bool {
+func (api *CacophonyUserAPI) Authenticated() bool {
 	return api.authenticated
 }
 
@@ -245,7 +245,7 @@ func newHTTPClient() *http.Client {
 // handleHTTPResponse checks StatusCode of a response for success and returns an http error
 // described in error.go
 func handleHTTPResponse(resp *http.Response) error {
-	if isAutherizatioError(resp.StatusCode) {
+	if isAuthorizationError(resp.StatusCode) {
 		return &Error{
 			message:        fmt.Sprintf("API authentication failed (%d):", resp.StatusCode),
 			authentication: true,
@@ -266,7 +266,7 @@ func isHTTPSuccess(code int) bool {
 	return code >= 200 && code < 300
 }
 
-func isAutherizatioError(code int) bool {
+func isAuthorizationError(code int) bool {
 	return code == 401
 }
 

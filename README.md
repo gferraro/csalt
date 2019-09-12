@@ -11,11 +11,11 @@ This project is licensed under the Apache License 2.0
 
 ## Usage
 
-csalt accepts 2 parameters
+csalt accepts the following parameters:
 1. Device and Groups. A list of Devices or group names to translate separated by a space
 	- Devices must be in the format of groupname:devicename
 	- Groups will be translated into all devices in this group
-2. Salt command to run e.g. `test.ping`
+2. Salt commands to run e.g. `state.apply test=True`, this can be 1 or multiple commands
 
 If only 1 parameter is supplied this will run directly on salt
 
